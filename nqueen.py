@@ -1,24 +1,46 @@
-def solve_n_queens(n):
-    def is_safe(board, row, col):
-        for i in range(row):
-            if board[i] == col or abs(board[i] - col) == abs(i - row):
-                return False
-        return True
-    def solve(row):
-        if row == n:
-            res.append(["".join("Q" if i == c else "." for i in range(n)) for c in board])
-            return
-        for col in range(n):
-            if is_safe(board, row, col):
-                board[row] = col
-                solve(row + 1)
-                board[row] = -1
-    res = []
-    board = [-1] * n
-    solve(0)
-    return res
-n = 4
-for sol in solve_n_queens(n):
-    for row in sol:
-        print(row)
+def print_solution(board):
+    N = len(board)
+    for row in board:
+        print(" ".join(str(cell) for cell in row))
     print()
+
+def is_safe(board, row, col):
+    N = len(board)
+    for i in range(col):
+        if board[row][i]:
+            return False
+
+    for i, j in zip(range(row, -1, -1), range(col, -1, -1)):
+        if board[i][j]:
+            return False
+
+    for i, j in zip(range(row, N, 1), range(col, -1, -1)):
+        if board[i][j]:
+            return False
+
+    return True
+
+def solve_nq_util(board, col):
+    N = len(board)
+    if col >= N:
+        print_solution(board)
+        return True
+
+    res = False
+    for i in range(N):
+        if is_safe(board, i, col):
+            board[i][col] = 1
+            res = solve_nq_util(board, col + 1)
+            board[i][col] = 0
+    return res
+
+def solve_n_queens(N):
+    board = [[0 for _ in range(N)] for _ in range(N)]
+
+    if not solve_nq_util(board, 0):
+        print("No solution exists")
+        return False
+
+    return True
+
+solve_n_queens(4)
