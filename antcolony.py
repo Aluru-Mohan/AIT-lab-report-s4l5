@@ -1,38 +1,73 @@
+import numpy as np
 import random
 
-D = [[0,2,2,5],[2,0,3,4],[2,3,0,1],[5,4,1,0]]
-N = len(D)
-pher = [[1]*N for _ in range(N)]
-a,b=1,2; evap=0.5; pc=1
-best_path, best_dist = None, float('inf')
+n_ants = 5
+n_iterations = 100
+decay = 0.01
+alpha = 1
+beta = 2
 
-def probs(c, v):
-    p=[(pher[c][i]**a)*((1/D[c][i])**b) if i not in v and D[c][i]>0 else 0 for i in range(N)]
-    s=sum(p)
-    if s==0: p=[1 if i not in v else 0 for i in range(N)]; s=sum(p)
-    return [x/s for x in p]
+distance_matrix = np.array([
+    [0, 10, 18, 20, 25],
+    [10, 0, 31, 25, 17],
+    [18, 31, 0, 28, 23],
+    [20, 25, 28, 0, 23],
+    [25, 17, 23, 23, 0]
+])
 
-def wchoice(choices, weights):
-    r=random.random()*sum(weights)
-    for c,w in zip(choices,weights):
-        r-=w
-        if r<=0: return c
-    return choices[-1]
+n = len(distance_matrix)
+pheromone = np.ones((n, n)) / n
+all_inds = range(n)
 
-for _ in range(100):
-    paths,dists = [],[]
-    for _ in range(4):
-        v=[random.randint(0,N-1)]
-        while len(v)<N:
-            v.append(wchoice(range(N), probs(v[-1], v)))
-        v.append(v[0])
-        dist=sum(D[v[i]][v[i+1]] for i in range(N))
-        paths.append(v); dists.append(dist)
-        if dist<best_dist: best_dist,best_path=dist,v
-    for i in range(N):
-        for j in range(N): pher[i][j]*=1-evap
-    for p,d in zip(paths,dists):
-        for i in range(len(p)-1): pher[p[i]][p[i+1]]+=pc/d
+def pick_move(pheromone_row, dist_row, visited):
+    pheromone_row = np.copy(pheromone_row)
+    pheromone_row[list(visited)] = 0
+    row = pheromone_row ** alpha * ((1.0 / dist_row) ** beta)
+    norm_row = row / row.sum()
+    move = np.random.choice(all_inds, 1, p=norm_row)[0]
+    return move
 
-print("Best Path:", best_path)
-print("Best Distance:", best_dist)
+def gen_path(start):
+    path = []
+    visited = set([start])
+    prev = start
+    for _ in range(n - 1):
+        move = pick_move(pheromone[prev], distance_matrix[prev], visited)
+        path.append((prev, move))
+        prev = move
+        visited.add(move)
+    path.append((prev, start))
+    return path
+
+def path_distance(path):
+    total = 0
+    for (i, j) in path:
+        total += distance_matrix[i][j]
+    return total
+
+def run_aco():
+    global pheromone
+    shortest_path = None
+    all_time_shortest = (None, np.inf)
+    for _ in range(n_iterations):
+        all_paths = []
+        for _ in range(n_ants):
+            path = gen_path(0)
+            dist = path_distance(path)
+            all_paths.append((path, dist))
+        all_paths.sort(key=lambda x: x[1])
+        if all_paths[0][1] < all_time_shortest[1]:
+            all_time_shortest = all_paths[0]
+        pheromone = pheromone * (1 - decay)
+        for path, dist in all_paths[:n_ants]:
+            for move in path:
+                pheromone[move] += 1.0 / distance_matrix[move]
+    return all_time_shortest
+
+shortest_path = run_aco()
+
+print("\nDistance Matrix (Travel Times):")
+print(distance_matrix)
+print("\nOptimized Ride Sharing Route:")
+print(shortest_path[0])
+print("\nShortest Duration:", shortest_path[1], "minutes")
